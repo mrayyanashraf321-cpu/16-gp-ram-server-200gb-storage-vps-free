@@ -1,0 +1,39 @@
+name: Windows-11-Cloud-PC
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-rdp:
+    runs-on: windows-2022
+    steps:
+      - name: Stage 1 - Downloading Tailscale Client
+        run: |
+          Invoke-WebRequest -Uri "https://tailscale.com" -OutFile "tailscale-setup.exe"
+          
+      - name: Stage 2 - Silent Installation
+        run: |
+          Start-Process -FilePath .\tailscale-setup.exe -ArgumentList "/qn" -Wait
+          
+      - name: Stage 3 - Establish Secure VPN Mesh Tunnel
+        run: |
+          & "C:\Program Files\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTHKEY }} --accept-routes
+          
+      - name: Stage 4 - Provision Local Admin Credential Account
+        run: |
+          net user runneradmin "techzoner@01" /add
+          net localgroup administrators runneradmin /add
+          
+      - name: Stage 5 - Unlock Registry & Firewall Protocols
+        run: |
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0
+          
+      - name: Stage 6 - Bypass Automatic Job Shutdown Routine
+        run: |
+          $loopCount = 360
+          for ($i = 1; $i -le $loopCount; $i++) {
+              Write-Host "Cloud PC Live Session Heartbeat Loop: $i / $loopCount (Running Online)"
+              Start-Sleep -Seconds 60
+          }
